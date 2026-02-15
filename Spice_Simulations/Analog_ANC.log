@@ -1,6 +1,0 @@
-LTspice 24.1.1 for Windows
-Circuit: C:\Users\ros\Desktop\Anura-Headphones\Spice_Simulations\Analog_ANC.net
-Start Time: Tue Feb 10 01:13:02 2026
-C:\Users\ros\Desktop\Anura-Headphones\Spice_Simulations\Analog_ANC.net(8): Number of nodes does not match number of pins (5) of sub-circuit "lf411".
-X§U1 NC_01 NC_02 VDD VSS NC_03 LF411
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^
