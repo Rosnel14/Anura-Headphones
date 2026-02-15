@@ -1,0 +1,59 @@
+# =========================
+# LTspice Simulation Files
+# =========================
+
+# Raw waveform data
+*.raw
+
+# Log files
+*.log
+
+# Fourier analysis output
+*.fft
+
+# Measurement output
+*.meas
+
+# Operating point data
+*.op.raw
+
+# Noise analysis data
+*.noise
+
+# Transient data exports
+*.tran
+*.ac
+*.dc
+
+# Simulation backup files
+*.bak
+*.tmp
+
+# Netlists (optional – remove if you want to track generated netlists)
+*.net
+
+# LTspice auto-generated files
+*.save
+*.step
+*.asy.autosave
+*.asc.autosave
+
+# Plot settings / window state
+*.plt
+
+# =========================
+# OS / Editor junk (recommended)
+# =========================
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# VSCode
+.vscode/
+
+# General
+*~
