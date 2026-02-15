@@ -1,49 +1,92 @@
-# =========================
-# LTspice Simulation Files
-# =========================
+# =========================================================
+# ===================== LTspice ===========================
+# =========================================================
 
-# Raw waveform data
+# Simulation outputs
 *.raw
-
-# Log files
 *.log
-
-# Fourier analysis output
 *.fft
-
-# Measurement output
 *.meas
-
-# Operating point data
 *.op.raw
-
-# Noise analysis data
 *.noise
-
-# Transient data exports
 *.tran
 *.ac
 *.dc
-
-# Simulation backup files
+*.net
+*.plt
 *.bak
 *.tmp
 
-# Netlists (optional – remove if you want to track generated netlists)
-*.net
-
-# LTspice auto-generated files
-*.save
-*.step
-*.asy.autosave
+# Autosaves
 *.asc.autosave
+*.asy.autosave
 
-# Plot settings / window state
-*.plt
+# Keep schematics and symbols
+!*.asc
+!*.asy
+!*.lib
+!*.sub
 
-# =========================
-# OS / Editor junk (recommended)
-# =========================
+
+# =========================================================
+# ================= STM32CubeIDE ==========================
+# =========================================================
+
+# Build folders
+Debug/
+Release/
+build/
+*/Debug/
+*/Release/
+
+# Object and binary files
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.axf
+*.su
+
+# STM32CubeIDE metadata
+.settings/
+.metadata/
+*.launch
+
+# Eclipse-based IDE files
+.project
+.cproject
+
+# CDT autosave
+*.prefs
+
+# Generated linker files (optional — remove if custom editing)
+*.ld.bak
+
+# CubeMX intermediate files
+*.mxproject
+
+
+# =========================================================
+# ================= General C/C++ =========================
+# =========================================================
+
+# Dependency files
+*.d
+
+# Precompiled headers
+*.gch
+
+# Static / dynamic libs
+*.a
+*.so
+*.dll
+
+# =========================================================
+# ================= OS / Editor ===========================
+# =========================================================
 
 # macOS
 .DS_Store
@@ -52,8 +95,11 @@
 Thumbs.db
 desktop.ini
 
-# VSCode
+# Linux
+*~
+
+# VSCode (if you open repo in VSCode)
 .vscode/
 
-# General
-*~
+# JetBrains
+.idea/
