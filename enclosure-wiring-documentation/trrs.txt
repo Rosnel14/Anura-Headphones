@@ -1,0 +1,4 @@
+L audio - blue
+R audio - red
+GND - green
+Mic - yellow
