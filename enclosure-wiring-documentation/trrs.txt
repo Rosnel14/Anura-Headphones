@@ -1,4 +1,5 @@
-L audio - blue
-R audio - red
-GND - green
-Mic - yellow
+L audio (tip) - blue
+R audio (ring 1) - red
+GND (ring 2) - green
+Mic (sleeve) - yellow
+
