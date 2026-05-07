@@ -17,11 +17,11 @@ import subprocess
 # CONFIG
 # ------------------------
 
-MODEL_SIZE = "small"
+MODEL_SIZE = "base"
 SAMPLE_RATE = 16000
 BLOCK_SIZE = 1600             # 100ms audio chunks fed into queue
 
-SILENCE_THRESHOLD = 0.008    # RMS below this = silence
+SILENCE_THRESHOLD = 0.01     # RMS below this = silence
 SILENCE_SECONDS = 0.8        # silence duration that ends an utterance
 MIN_SPEECH_SECONDS = 0.4     # ignore blips shorter than this
 MAX_SPEECH_SECONDS = 12.0    # force-process if someone talks very long
@@ -110,22 +110,16 @@ def ensure_packages(from_code, to_code):
 
 if SOURCE_LANG != USER_LANG:
     ensure_packages(SOURCE_LANG, USER_LANG)
-    ensure_packages(USER_LANG, SOURCE_LANG)
 
-# pre-warm the translation model so the first real utterance isn't slow
-if SOURCE_LANG != USER_LANG:
-    argostranslate.translate.translate("hello", SOURCE_LANG, USER_LANG)
-    argostranslate.translate.translate("hello", USER_LANG, SOURCE_LANG)
-
-print(f"\n{src_name} ↔ {tgt_name}  |  Ctrl+C to stop\n")
+print(f"\n{src_name} → {tgt_name}  |  Ctrl+C to stop\n")
 
 # ------------------------
 # TRANSLATION
 # ------------------------
 
-def translate(text, from_code, to_code):
+def translate(text):
     try:
-        return argostranslate.translate.translate(text, from_code, to_code)
+        return argostranslate.translate.translate(text, SOURCE_LANG, USER_LANG)
     except Exception as e:
         print(f"  [translation error: {e}]")
         return None
@@ -134,53 +128,20 @@ def translate(text, from_code, to_code):
 # TTS
 # ------------------------
 
-# macOS voice per language — run `say -v ?` to see all installed voices
-LANG_VOICES = {
-    "en": "Samantha",
-    "zh": "Ting-Ting",
-    "es": "Monica",
-    "fr": "Thomas",
-    "de": "Anna",
-    "it": "Alice",
-    "pt": "Joana",
-    "ja": "Kyoko",
-    "ko": "Yuna",
-    "ar": "Tarik",
-    "ru": "Milena",
-    "hi": "Lekha",
-}
-
 tts_queue = queue.Queue()
-tts_proc = None
 
 def tts_worker():
-    global tts_proc
     while True:
-        text, voice = tts_queue.get()
+        text = tts_queue.get()
         try:
-            tts_proc = subprocess.Popen(["say", "-r", "190", "-v", voice, text])
-            tts_proc.wait()
+            subprocess.run(["say", "-r", "190", text])
         except Exception as e:
             print(f"  [TTS error: {e}]")
-        finally:
-            tts_proc = None
 
 threading.Thread(target=tts_worker, daemon=True).start()
 
-def speak(text, lang):
-    voice = LANG_VOICES.get(lang, "Samantha")
-    tts_queue.put((text, voice))
-
-def flush_tts():
-    # kill current playback and drain the queue when new speech starts
-    global tts_proc
-    if tts_proc and tts_proc.poll() is None:
-        tts_proc.terminate()
-    while not tts_queue.empty():
-        try:
-            tts_queue.get_nowait()
-        except Exception:
-            break
+def speak(text):
+    tts_queue.put(text)
 
 # ------------------------
 # AUDIO CALLBACK
@@ -193,13 +154,6 @@ def callback(indata, frames, time, status):
 # TRANSCRIBE + TRANSLATE
 # ------------------------
 
-def is_repetitive(text):
-    # catches hallucinations like 嗯,嗯,嗯,嗯... or um,um,um,um...
-    tokens = text.replace(",", " ").split()
-    if len(tokens) < 6:
-        return False
-    return len(set(tokens)) / len(tokens) < 0.25
-
 def process_utterance(speech_buffer, recent_transcript):
     chunk = np.concatenate(speech_buffer).flatten()
 
@@ -209,26 +163,14 @@ def process_utterance(speech_buffer, recent_transcript):
         temperature=0,
         vad_filter=True,
         condition_on_previous_text=False,
-        compression_ratio_threshold=1.5,
+        compression_ratio_threshold=1.8,
         no_speech_threshold=0.6,
     )
 
     detected_lang = info.language
-
-    # reject low-confidence language detections
-    if info.language_probability < 0.7:
-        return recent_transcript
-
-    # ignore if Whisper detected an unexpected language — likely a misdetection
-    if detected_lang not in (SOURCE_LANG, USER_LANG):
-        return recent_transcript
-
     text = " ".join(s.text for s in segments if s.no_speech_prob < 0.6).strip()
 
     if not text or len(text) < 3:
-        return recent_transcript
-
-    if is_repetitive(text):
         return recent_transcript
 
     if text.strip().lower() == recent_transcript.strip().lower():
@@ -236,20 +178,11 @@ def process_utterance(speech_buffer, recent_transcript):
 
     print(f"[{detected_lang}] {text}")
 
-    if detected_lang == USER_LANG:
-        # user spoke — translate to source language and speak for the other person
-        translated = translate(text, USER_LANG, SOURCE_LANG)
+    if detected_lang != USER_LANG:
+        translated = translate(text)
         if translated:
-            print(f"  → [{SOURCE_LANG}] {translated}")
-            speak(translated, SOURCE_LANG)
-        else:
-            print("  → translation failed")
-    else:
-        # other person spoke — translate to user's language and speak for the user
-        translated = translate(text, SOURCE_LANG, USER_LANG)
-        if translated:
-            print(f"  → [{USER_LANG}] {translated}")
-            speak(translated, USER_LANG)
+            print(f"  → {translated}")
+            speak(translated)
         else:
             print("  → translation failed")
 
@@ -267,16 +200,10 @@ stream = sd.InputStream(
 )
 
 recent_transcript = ""
-transcript_lock   = threading.Lock()
 
-SILENCE_BLOCKS    = int(SILENCE_SECONDS    * SAMPLE_RATE / BLOCK_SIZE)
+SILENCE_BLOCKS  = int(SILENCE_SECONDS   * SAMPLE_RATE / BLOCK_SIZE)
 MIN_SPEECH_BLOCKS = int(MIN_SPEECH_SECONDS * SAMPLE_RATE / BLOCK_SIZE)
 MAX_SPEECH_BLOCKS = int(MAX_SPEECH_SECONDS * SAMPLE_RATE / BLOCK_SIZE)
-
-def dispatch_utterance(buf):
-    global recent_transcript
-    with transcript_lock:
-        recent_transcript = process_utterance(buf, recent_transcript)
 
 with stream:
     speech_buffer = []
@@ -290,13 +217,12 @@ with stream:
             is_speech = rms > SILENCE_THRESHOLD
 
             if is_speech:
-                if not in_speech:
-                    flush_tts()
                 speech_buffer.append(data.copy())
                 silent_blocks = 0
                 in_speech = True
 
             elif in_speech:
+                # trailing silence — keep accumulating until the pause is long enough
                 speech_buffer.append(data.copy())
                 silent_blocks += 1
 
@@ -305,12 +231,7 @@ with stream:
 
                 if end_of_utterance or too_long:
                     if len(speech_buffer) >= MIN_SPEECH_BLOCKS:
-                        # process in background so audio collection never pauses
-                        threading.Thread(
-                            target=dispatch_utterance,
-                            args=(speech_buffer,),
-                            daemon=True,
-                        ).start()
+                        recent_transcript = process_utterance(speech_buffer, recent_transcript)
                     speech_buffer = []
                     silent_blocks  = 0
                     in_speech      = False
